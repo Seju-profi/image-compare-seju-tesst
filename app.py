@@ -10,6 +10,16 @@ def resize_to_match(image1, image2):
     resized_image1 = cv2.resize(image1, (size_image2[1], size_image2[0]))  # Resize image1
     return resized_image1, image2
 
+def read_image_file(file):
+    try:
+        # Read image file and convert to RGB format
+        image = Image.open(io.BytesIO(file.read())).convert('RGB')
+        return np.array(image)
+    except Exception as e:
+        st.error(f"An error occurred when reading the image file: {e}")
+        return None
+
+
 def correct_rotation(base_image, image_to_correct):
     orb = cv2.ORB_create()
     keypoints1, descriptors1 = orb.detectAndCompute(base_image, None)
