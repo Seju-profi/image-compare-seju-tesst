@@ -1,7 +1,57 @@
 import streamlit as st
 import PIL.Image as Image
-import io
+import PIL.ImageChops as ImageChops
+import cv2
 import numpy as np
+import io
+
+def resize_to_match(image1, image2):
+    size_image2 = image2.shape[:2]  # Get dimensions of image2
+    resized_image1 = cv2.resize(image1, (size_image2[1], size_image2[0]))  # Resize image1
+    return resized_image1, image2
+
+
+def correct_rotation(base_image, image_to_correct):
+    orb = cv2.ORB_create()
+    keypoints1, descriptors1 = orb.detectAndCompute(base_image, None)
+    keypoints2, descriptors2 = orb.detectAndCompute(image_to_correct, None)
+
+    # Ensure descriptors are not None
+    if descriptors1 is not None and descriptors2 is not None:
+        matcher = cv2.DescriptorMatcher_create(cv2.DESCRIPTOR_MATCHER_BRUTEFORCE_HAMMING)
+        matches = matcher.match(descriptors1, descriptors2, None)
+
+        # Convert matches to a list if not already (this depends on the OpenCV version)
+        if not isinstance(matches, list):
+            matches = list(matches)
+
+        # Proceed only if there are enough matches
+        if len(matches) > 10:
+            matches.sort(key=lambda x: x.distance, reverse=False)
+
+            points1 = np.zeros((len(matches), 2), dtype=np.float32)
+            points2 = np.zeros((len(matches), 2), dtype=np.float32)
+
+            for i, match in enumerate(matches):
+                points1[i, :] = keypoints1[match.queryIdx].pt
+                points2[i, :] = keypoints2[match.trainIdx].pt
+
+            h, mask = cv2.findHomography(points1, points2, cv2.RANSAC)
+
+            # Ensure a valid homography matrix was found
+            if h is not None:
+                height, width, channels = base_image.shape
+                corrected_image = cv2.warpPerspective(image_to_correct, np.linalg.inv(h), (width, height))
+                return corrected_image
+
+    # If descriptors are None or not enough matches, return original image
+    return image_to_correct
+
+
+def read_image_file(file):
+    # Read image file and convert to RGB format
+    image = Image.open(io.BytesIO(file.read())).convert('RGB')
+    return np.array(image)
 
 def display_image_info(image_file):
     if image_file is not None:
@@ -11,19 +61,8 @@ def display_image_info(image_file):
         st.write("Dimensions: ", image.size)
         st.write("File Size: {:.2f} KB".format(image_file.size / 1024))
 
-def process_image(image, option):
-    # Dummy processing function
-    # Replace with actual image processing logic
-    if option == 'Grayscale':
-        image = image.convert('L')
-    elif option == 'Flip Horizontal':
-        image = image.transpose(Image.FLIP_LEFT_RIGHT)
-    elif option == 'Flip Vertical':
-        image = image.transpose(Image.FLIP_TOP_BOTTOM)
-    return image
-
 def main():
-    st.title("TESTTTTTT-Profield-Image Comparing App")
+    st.title("Image Comparing App")
 
     col1, col2 = st.columns(2)
 
@@ -37,26 +76,27 @@ def main():
         image2_file = st.file_uploader("", type=['jpg', 'png', 'jpeg'], key="image2")
         display_image_info(image2_file)
 
-    processing_option = st.selectbox('Select Image Processing Option', 
-                                     ['Grayscale', 'Flip Horizontal', 'Flip Vertical'])
-
-    if st.button('Start Image Processing'):
+    if st.button('Compare Images'):
         if image1_file is not None and image2_file is not None:
-            with st.spinner("Processing Images..."):
-                image1 = Image.open(image1_file)
-                image2 = Image.open(image2_file)
+            with st.spinner("Comparing Images..."):
+                image1 = read_image_file(image1_file)
+                image2 = read_image_file(image2_file)
 
-                processed_image1 = process_image(image1, processing_option)
-                processed_image2 = process_image(image2, processing_option)
+                preprocessed_img1, preprocessed_img2 = preprocess_images_for_comparison(image1, image2)
 
-                col1, col2 = st.columns(2)
-                with col1:
-                    st.image(processed_image1, caption='Processed Image 1', use_column_width=True)
-                with col2:
-                    st.image(processed_image2, caption='Processed Image 2', use_column_width=True)
-            st.success("Processing Completed!")
+                # Convert the preprocessed images back to PIL images for comparison
+                preprocessed_img1 = Image.fromarray(preprocessed_img1)
+                preprocessed_img2 = Image.fromarray(preprocessed_img2)
+
+                # Finding difference
+                diff = ImageChops.difference(preprocessed_img1, preprocessed_img2)
+
+                # Display the result
+                st.image(diff, caption='Difference', use_column_width=True)
+
+            st.success("Comparison Completed!")
         else:
-            st.warning("Please upload both images before processing.")
+            st.warning("Please upload both images before comparing.")
 
 if __name__ == "__main__":
     main()
