@@ -62,7 +62,7 @@ def display_image_info(image_file):
         st.write("File Size: {:.2f} KB".format(image_file.size / 1024))
 
 def main():
-    st.title("Image Comparing App")
+    st.title("TESTTT---Image Comparing App")
 
     col1, col2 = st.columns(2)
 
