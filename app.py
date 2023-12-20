@@ -3,10 +3,11 @@ import numpy as np
 from PIL import Image, ImageChops
 import cv2
 import io
-import torch
 from transformers import BeitModel, BeitImageProcessor
 from sklearn import preprocessing
 import numpy as np
+import torch
+
 
 # Load BEiT Model and Processor
 mdl = BeitModel.from_pretrained("microsoft/beit-base-finetuned-ade-640-640")
