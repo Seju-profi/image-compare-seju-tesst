@@ -3,9 +3,9 @@ import numpy as np
 from PIL import Image, ImageChops
 import cv2
 import io
-from transformers import BeitModel, BeitImageProcessor
 from sklearn import preprocessing
 import numpy as np
+from transformers import BeitModel, BeitImageProcessor
 import torch
 
 
